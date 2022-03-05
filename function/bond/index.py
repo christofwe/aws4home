@@ -42,17 +42,17 @@ def handler(event, context):
     for tr in table.find_all('tr')[1:]:
       tds = tr.find_all('td')
       logger.debug(f"tds: {tds}")
-      when = (tds[0].text + tds[1].text).replace("\n", "")
-      logger.debug(f"when0: {when}")
+      when = (tds[0].text.strip() + tds[1].text.strip()).replace("\n", "")
       when = when.replace("\xa0", "")
-      logger.debug(f"when1: {when}")
-      show_time_naive = datetime.strptime(when, '%d.%m.%Y%H.%M Uhr')
+      when = when.replace(" ", "")
+      if "/" in when:
+        when = when.split("/")[1]
+      logger.debug(f"when: {when}")
+      show_time_naive = datetime.strptime(when, '%d.%m.%Y%H.%MUhr')
       show_time_local = local.localize(show_time_naive)
       show_time_unix = int(datetime.timestamp(show_time_local))
 
-      logger.debug(f"show time NAIVE: {str(show_time_naive)}")
-      logger.debug(f"show time LOCAL: {str(show_time_local)}")
-      logger.debug(f"show time UNIX: {str(show_time_unix)}")
+      logger.debug(f"show time NAIVE: {str(show_time_naive)} show time LOCAL: {str(show_time_local)} show time UNIX: {str(show_time_unix)}")
 
       program.append({
         'show_time_naive': show_time_naive,
@@ -67,8 +67,7 @@ def handler(event, context):
         next_show_time = datetime.utcfromtimestamp(show['show_time_unix'])
         cron_expression = 'cron(' + str(next_show_time.minute) + ' ' + str(next_show_time.hour) + ' ' + str(next_show_time.day) + ' ' + str(next_show_time.month) + ' ? ' + str(next_show_time.year) + ')'
 
-        logger.debug(f"next show time: {str(next_show_time)}")
-        logger.info(f"new cron expression: {str(cron_expression)}")
+        logger.debug(f"next show time: {str(next_show_time)} new cron expression: {str(cron_expression)}")
 
         update_event_rule(cron_expression)
         return

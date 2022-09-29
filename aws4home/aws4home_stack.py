@@ -138,7 +138,7 @@ class Aws4HomeStack(Stack):
                 )
             ),
             handler="index.handler",
-            layers=[powertools, requests],
+            layers=[powertools, pytz, requests],
             tracing=lambda_.Tracing.ACTIVE,
             timeout=Duration.seconds(60),
             memory_size=128,
@@ -150,7 +150,7 @@ class Aws4HomeStack(Stack):
                 "ISS_URL": iss_url,
                 "LATITUDE": iss_lat,
                 "LONGITUDE": iss_long,
-                "ALTITUDE": iss_alt,
+                "TZ": tz,
                 "MQTT_TOPIC": mqtt_topic
             },
             initial_policy=[

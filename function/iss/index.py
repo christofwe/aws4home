@@ -1,7 +1,7 @@
 import os
 import boto3
 import json
-import time
+import pytz
 from datetime import datetime
 from botocore.exceptions import ClientError
 
@@ -16,7 +16,7 @@ iss_prefix = os.environ['ISS_PREFIX']
 iss_url = os.environ['ISS_URL']
 lat = os.environ['LATITUDE']
 lon = os.environ['LONGITUDE']
-alt = os.environ['ALTITUDE']
+tz = os.environ['TZ']
 mqtt_topic = os.environ['MQTT_TOPIC']
 
 
@@ -28,29 +28,24 @@ def handler(event, context):
   publish_to_iot(mqtt_topic, "iss.gif", current_duration)
 
   try:
-    response = requests.get(f"{iss_url}?lat={lat}&lon={lon}&alt={alt}")
+    response = requests.get(f"{iss_url}&lon={lon}&lat={lat}&tz={tz}")
     data = response.json()
     logger.debug(f"data: {data}")
 
-    current_time = int(time.time())
-    next_risetime = data['response'][0]['risetime']
-    next_duration = data['response'][0]['duration']
+    current_time = datetime.now(tz=pytz.timezone("Europe/Berlin"))
+    next_risetime = datetime.strptime(data['passes'][0]['begin'], "%Y%m%d%H%M%S")
+    next_end = datetime.strptime(data['passes'][0]['end'], "%Y%m%d%H%M%S")
+    next_duration = (next_end - next_risetime).seconds
 
     logger.debug(f"current time: {str(current_time)}")
     logger.debug(f"risetime0: {str(next_risetime)}")
+    logger.debug(f"end0: {str(next_end)}")
     logger.debug(f"duration0: {str(next_duration)}")
 
-    if next_risetime - current_time < 300:
-      next_risetime = data['response'][1]['risetime']
-      next_duration = data['response'][1]['duration']
-
-      logger.debug(f"risetime1: {str(next_risetime)}")
-      logger.debug(f"duration0: {str(next_duration)}")
-
-    pass_time = datetime.utcfromtimestamp(next_risetime)
+    pass_time = next_risetime.astimezone(pytz.utc)
     cron_expression = 'cron(' + str(pass_time.minute) + ' ' + str(pass_time.hour) + ' ' + str(pass_time.day) + ' ' + str(pass_time.month) + ' ? ' + str(pass_time.year) + ')'
 
-    logger.debug(f"next risetime: {datetime.utcfromtimestamp(next_risetime).strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.debug(f"next risetime: {next_risetime.strftime('%Y-%m-%d %H:%M:%S')}")
     logger.info(f"new cron expression: {cron_expression}")
 
   except Exception as e:
@@ -173,37 +168,4 @@ def write_next_duration_to_route53(hosted_zone_id, risetime, duration):
   except ClientError as client_error:
     logger.error(client_error)
 
-## reponse http://api.open-notify.org/iss-pass.json?lat=48.956752&lon=12.238356&alt=335
-#
-# {
-#   "message": "success",
-#   "request": {
-#     "altitude": 335,
-#     "datetime": 1588492443,
-#     "latitude": 48.956752,
-#     "longitude": 12.238356,
-#     "passes": 5
-#   },
-#   "response": [
-#     {
-#       "duration": 549,
-#       "risetime": 1588493504
-#     },
-#     {
-#       "duration": 333,
-#       "risetime": 1588548193
-#     },
-#     {
-#       "duration": 618,
-#       "risetime": 1588553800
-#     },
-#     {
-#       "duration": 656,
-#       "risetime": 1588559574
-#     },
-#     {
-#       "duration": 652,
-#       "risetime": 1588565396
-#     }
-#   ]
-# }
+## response https://www.astroviewer.net/iss/ws/predictor.php?sat=25544&lon=12.2380&lat=48.9570&name=&tz=Europe%2FBerlin

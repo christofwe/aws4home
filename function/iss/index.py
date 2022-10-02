@@ -16,30 +16,33 @@ iss_prefix = os.environ['ISS_PREFIX']
 iss_url = os.environ['ISS_URL']
 lat = os.environ['LATITUDE']
 lon = os.environ['LONGITUDE']
-t_zone = os.environ['TZ']
+tz_str = os.environ['TZ']
 mqtt_topic = os.environ['MQTT_TOPIC']
 
 
 @tracer.capture_lambda_handler
 @logger.inject_lambda_context(log_event=True)
 def handler(event, context):
+  # Duration of current pass over was stored in R53 record ;)
+  # Message is being sent for ISS to light up
   current_duration = read_duration_from_route53(hosted_zone_id)
   publish_to_iot(mqtt_topic, "iss.gif", current_duration)
   
-  tz=pytz.timezone(t_zone)
+  tz=pytz.timezone(tz_str)
   current_time = datetime.now(tz)
   try:
-    response = requests.get(f"{iss_url}&lon={lon}&lat={lat}&tz={t_zone}").json()
+    response = requests.get(f"{iss_url}&lon={lon}&lat={lat}&tz={tz_str}").json()
     logger.debug(f"response: {response}")
 
     passes = response['passes']
 
+    # Find next pass over, that is at least an hour in the future. API does always return all passes for current day.
     for pass_over in passes:
       pass_begin = tz.localize(datetime.strptime(pass_over['begin'], "%Y%m%d%H%M%S"))
       pass_end = tz.localize(datetime.strptime(pass_over['end'], "%Y%m%d%H%M%S"))
       pass_duration = (pass_end - pass_begin).seconds
       
-      if (pass_begin - current_time).seconds > 300:
+      if (pass_begin - current_time).seconds > 3600:
         break
 
     logger.debug(f"current time: {str(current_time)}")
@@ -48,6 +51,7 @@ def handler(event, context):
     logger.debug(f"pass_end: {str(pass_end)}")
     logger.debug(f"pass_duration: {str(pass_duration)}")
 
+    # Cron trigger in EventBridge requires time in UTC
     next_pass_utc = pass_begin.astimezone(pytz.utc)
     cron_expression = 'cron(' + str(next_pass_utc.minute) + ' ' + str(next_pass_utc.hour) + ' ' + str(next_pass_utc.day) + ' ' + str(next_pass_utc.month) + ' ? ' + str(next_pass_utc.year) + ')'
 

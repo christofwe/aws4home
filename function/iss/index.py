@@ -37,25 +37,32 @@ def handler(event, context):
     passes = response['passes']
 
     # Find next pass over, that is at least an hour in the future. API does always return all passes for current day.
+    i = 0
     for pass_over in passes:
       pass_begin = tz.localize(datetime.strptime(pass_over['begin'], "%Y%m%d%H%M%S"))
       pass_end = tz.localize(datetime.strptime(pass_over['end'], "%Y%m%d%H%M%S"))
-      pass_duration = (pass_end - pass_begin).seconds
       
       if (pass_begin - current_time).seconds > 3600:
+        next_pass_index = i + 1
         break
-
+      
+      i += 1
+  
+    next_pass_begin = tz.localize(datetime.strptime(passes[next_pass_index]['begin'], "%Y%m%d%H%M%S"))
+    next_pass_end = tz.localize(datetime.strptime(passes[next_pass_index]['end'], "%Y%m%d%H%M%S"))
+    next_pass_duration = (next_pass_end - next_pass_begin).seconds
+    
     logger.debug(f"current time: {str(current_time)}")
-    logger.debug(f"pass_begin - current_time).seconds: {str((pass_begin - current_time).seconds)}")
-    logger.debug(f"pass_begin: {str(pass_begin)}")
-    logger.debug(f"pass_end: {str(pass_end)}")
-    logger.debug(f"pass_duration: {str(pass_duration)}")
+    logger.debug(f"(next_pass_begin - current_time).seconds: {str((next_pass_begin - current_time).seconds)}")
+    logger.debug(f"next_pass_begin: {str(next_pass_begin)}")
+    logger.debug(f"next_pass_end: {str(next_pass_end)}")
+    logger.debug(f"next_pass_duration: {str(next_pass_duration)}")
 
     # Cron trigger in EventBridge requires time in UTC
-    next_pass_utc = pass_begin.astimezone(pytz.utc)
+    next_pass_utc = next_pass_begin.astimezone(pytz.utc)
     cron_expression = 'cron(' + str(next_pass_utc.minute) + ' ' + str(next_pass_utc.hour) + ' ' + str(next_pass_utc.day) + ' ' + str(next_pass_utc.month) + ' ? ' + str(next_pass_utc.year) + ')'
 
-    logger.debug(f"next_pass: {next_pass_utc.strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.debug(f"next_pass_utc: {next_pass_utc.strftime('%Y-%m-%d %H:%M:%S')}")
     logger.info(f"new cron(UTC): {cron_expression}")
 
   except Exception as e:
@@ -63,7 +70,7 @@ def handler(event, context):
 
   update_event_rule(cron_expression)
 
-  write_next_duration_to_route53(hosted_zone_id, pass_begin, pass_duration)
+  write_next_duration_to_route53(hosted_zone_id, next_pass_begin, next_pass_duration)
 
 
 @tracer.capture_method

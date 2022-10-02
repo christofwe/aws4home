@@ -5,7 +5,6 @@
   "IssUrl": "http://api.open-notify.org/iss-pass.json",
   "IssLongitude": "0.000000",
   "IssLatitude": "0.000000",
-  "IssAltitude": "000",
   "BondPrefix": "bond",
   "BondUrl": "http://www.jamesbondfilme.de/007_im_tv.htm",
   "DomainName": "example.com",

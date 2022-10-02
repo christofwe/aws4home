@@ -25,7 +25,6 @@ class Aws4HomeStack(Stack):
         iss_url = params['IssUrl']
         iss_long = params['IssLongitude']
         iss_lat = params['IssLatitude']
-        iss_alt = params['IssAltitude']
         bond_prefix = params['BondPrefix']
         bond_url = params['BondUrl']
         lunar_prefix = params['LunarPrefix']

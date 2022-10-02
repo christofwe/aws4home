@@ -16,7 +16,7 @@ iss_prefix = os.environ['ISS_PREFIX']
 iss_url = os.environ['ISS_URL']
 lat = os.environ['LATITUDE']
 lon = os.environ['LONGITUDE']
-tz = os.environ['TZ']
+t_zone = os.environ['TZ']
 mqtt_topic = os.environ['MQTT_TOPIC']
 
 
@@ -24,36 +24,42 @@ mqtt_topic = os.environ['MQTT_TOPIC']
 @logger.inject_lambda_context(log_event=True)
 def handler(event, context):
   current_duration = read_duration_from_route53(hosted_zone_id)
-
   publish_to_iot(mqtt_topic, "iss.gif", current_duration)
-
+  
+  tz=pytz.timezone(t_zone)
+  current_time = datetime.now(tz)
   try:
-    response = requests.get(f"{iss_url}&lon={lon}&lat={lat}&tz={tz}")
-    data = response.json()
-    logger.debug(f"data: {data}")
+    response = requests.get(f"{iss_url}&lon={lon}&lat={lat}&tz={t_zone}").json()
+    logger.debug(f"response: {response}")
 
-    current_time = datetime.now(tz=pytz.timezone("Europe/Berlin"))
-    next_risetime = datetime.strptime(data['passes'][0]['begin'], "%Y%m%d%H%M%S")
-    next_end = datetime.strptime(data['passes'][0]['end'], "%Y%m%d%H%M%S")
-    next_duration = (next_end - next_risetime).seconds
+    passes = response['passes']
+
+    for pass_over in passes:
+      pass_begin = tz.localize(datetime.strptime(pass_over['begin'], "%Y%m%d%H%M%S"))
+      pass_end = tz.localize(datetime.strptime(pass_over['end'], "%Y%m%d%H%M%S"))
+      pass_duration = (pass_end - pass_begin).seconds
+      
+      if (pass_begin - current_time).seconds > 300:
+        break
 
     logger.debug(f"current time: {str(current_time)}")
-    logger.debug(f"risetime0: {str(next_risetime)}")
-    logger.debug(f"end0: {str(next_end)}")
-    logger.debug(f"duration0: {str(next_duration)}")
+    logger.debug(f"pass_begin - current_time).seconds: {str((pass_begin - current_time).seconds)}")
+    logger.debug(f"pass_begin: {str(pass_begin)}")
+    logger.debug(f"pass_end: {str(pass_end)}")
+    logger.debug(f"pass_duration: {str(pass_duration)}")
 
-    pass_time = next_risetime.astimezone(pytz.utc)
-    cron_expression = 'cron(' + str(pass_time.minute) + ' ' + str(pass_time.hour) + ' ' + str(pass_time.day) + ' ' + str(pass_time.month) + ' ? ' + str(pass_time.year) + ')'
+    next_pass_utc = pass_begin.astimezone(pytz.utc)
+    cron_expression = 'cron(' + str(next_pass_utc.minute) + ' ' + str(next_pass_utc.hour) + ' ' + str(next_pass_utc.day) + ' ' + str(next_pass_utc.month) + ' ? ' + str(next_pass_utc.year) + ')'
 
-    logger.debug(f"next risetime: {next_risetime.strftime('%Y-%m-%d %H:%M:%S')}")
-    logger.info(f"new cron expression: {cron_expression}")
+    logger.debug(f"next_pass: {next_pass_utc.strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info(f"new cron(UTC): {cron_expression}")
 
   except Exception as e:
     raise Exception('ERROR - handler - Debug by hand: ' + str(e))
 
   update_event_rule(cron_expression)
 
-  write_next_duration_to_route53(hosted_zone_id, next_risetime, next_duration)
+  write_next_duration_to_route53(hosted_zone_id, pass_begin, pass_duration)
 
 
 @tracer.capture_method
@@ -168,4 +174,21 @@ def write_next_duration_to_route53(hosted_zone_id, risetime, duration):
   except ClientError as client_error:
     logger.error(client_error)
 
-## response https://www.astroviewer.net/iss/ws/predictor.php?sat=25544&lon=12.2380&lat=48.9570&name=&tz=Europe%2FBerlin
+## response https://www.astroviewer.net/iss/ws/predictor.php
+## Note: 
+
+# {
+#     "passes": [
+#         {
+#             "begin": "20221002194400",
+#             "end": "20221002195013",
+#             ...
+#         },
+#         {
+#             "begin": "20221003185914",
+#             "end": "20221003190222",
+#             ...
+#         }
+#     ],
+#     ...
+# }

@@ -42,8 +42,8 @@ def handler(event, context):
       pass_begin = tz.localize(datetime.strptime(pass_over['begin'], "%Y%m%d%H%M%S"))
       pass_end = tz.localize(datetime.strptime(pass_over['end'], "%Y%m%d%H%M%S"))
       
-      if (pass_begin - current_time).seconds > 3600:
-        next_pass_index = i + 1
+      if pass_begin > current_time:
+        next_pass_index = i
         break
       
       i += 1

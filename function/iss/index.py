@@ -2,7 +2,7 @@ import os
 import boto3
 import json
 import pytz
-from datetime import datetime
+from datetime import datetime, timedelta
 from botocore.exceptions import ClientError
 
 from aws_lambda_powertools import Logger, Tracer
@@ -38,15 +38,18 @@ def handler(event, context):
 
     # Find next pass over, that is at least an hour in the future. API does always return all passes for current day.
     i = 0
+    next_pass_index = -1
+    
     for pass_over in passes:
       pass_begin = tz.localize(datetime.strptime(pass_over['begin'], "%Y%m%d%H%M%S"))
-      pass_end = tz.localize(datetime.strptime(pass_over['end'], "%Y%m%d%H%M%S"))
       
-      if pass_begin > current_time:
-        next_pass_index = i
+      next_pass_index = i
+      if pass_begin > current_time+timedelta(hours=1):
         break
-      
       i += 1
+
+    if next_pass_index == -1:
+      raise Exception(f'ERROR - handler - No passes found: {response}')
   
     next_pass_begin = tz.localize(datetime.strptime(passes[next_pass_index]['begin'], "%Y%m%d%H%M%S"))
     next_pass_end = tz.localize(datetime.strptime(passes[next_pass_index]['end'], "%Y%m%d%H%M%S"))

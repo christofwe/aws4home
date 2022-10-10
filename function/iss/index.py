@@ -2,7 +2,7 @@ import os
 import boto3
 import json
 import pytz
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from botocore.exceptions import ClientError
 
 from aws_lambda_powertools import Logger, Tracer
@@ -38,27 +38,34 @@ def handler(event, context):
 
     # Find next pass over, that is at least an hour in the future. API does always return all passes for current day.
     i = 0
-    next_pass_index = -1
+    # next_pass_index = -1
     
-    for pass_over in passes:
-      pass_begin = tz.localize(datetime.strptime(pass_over['begin'], "%Y%m%d%H%M%S"))
-      
-      next_pass_index = i
-      if pass_begin > current_time+timedelta(hours=1):
-        break
-      i += 1
+    if len(passes) == 0:
+      next_pass_begin = datetime.combine(current_time+timedelta(days=3), datetime.min.time())
+      next_pass_duration = 1
+    else:
+      for pass_over in passes:
+        pass_begin = tz.localize(datetime.strptime(pass_over['begin'], "%Y%m%d%H%M%S"))
+        logger.debug(f"for loop - pass_begin: {str(pass_begin)}")
+        
+        next_pass_index = i
+        if pass_begin < current_time+timedelta(hours=1):
+          logger.debug(f"for loop - next_pass_index: {str(next_pass_index)}")
+          pass_begin = datetime.combine(current_time+timedelta(days=3), datetime.min.time())
+        else:
+          break
+          
+        i += 1
 
-    if next_pass_index == -1:
-      raise Exception(f'ERROR - handler - No passes found: {response}')
-  
-    next_pass_begin = tz.localize(datetime.strptime(passes[next_pass_index]['begin'], "%Y%m%d%H%M%S"))
-    next_pass_end = tz.localize(datetime.strptime(passes[next_pass_index]['end'], "%Y%m%d%H%M%S"))
-    next_pass_duration = (next_pass_end - next_pass_begin).seconds
+      #if next_pass_index == -1:
+      #  raise Exception(f'ERROR - handler - No passes found: {response}')
+    
+      next_pass_begin = tz.localize(datetime.strptime(passes[next_pass_index]['begin'], "%Y%m%d%H%M%S"))
+      next_pass_end = tz.localize(datetime.strptime(passes[next_pass_index]['end'], "%Y%m%d%H%M%S"))
+      next_pass_duration = (next_pass_end - next_pass_begin).seconds
     
     logger.debug(f"current time: {str(current_time)}")
-    logger.debug(f"(next_pass_begin - current_time).seconds: {str((next_pass_begin - current_time).seconds)}")
     logger.debug(f"next_pass_begin: {str(next_pass_begin)}")
-    logger.debug(f"next_pass_end: {str(next_pass_end)}")
     logger.debug(f"next_pass_duration: {str(next_pass_duration)}")
 
     # Cron trigger in EventBridge requires time in UTC

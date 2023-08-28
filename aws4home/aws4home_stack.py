@@ -43,14 +43,14 @@ class Aws4HomeStack(Stack):
             code=lambda_.Code.from_asset(
                 'layer/powertools',
                 bundling=BundlingOptions(
-                    image=lambda_.Runtime.PYTHON_3_9.bundling_image,
+                    image=lambda_.Runtime.PYTHON_3_11.bundling_image,
                     command=[
                         "bash", "-c",
                         "mkdir /asset-output/python && pip install -r requirements.txt -t /asset-output/python && cp -au . /asset-output"
                     ]
                 )
             ),
-            compatible_runtimes=[lambda_.Runtime.PYTHON_3_9],
+            compatible_runtimes=[lambda_.Runtime.PYTHON_3_11],
             compatible_architectures=[
                 lambda_.Architecture.ARM_64]
         )
@@ -60,14 +60,14 @@ class Aws4HomeStack(Stack):
             code=lambda_.Code.from_asset(
                 'layer/requests',
                 bundling=BundlingOptions(
-                    image=lambda_.Runtime.PYTHON_3_9.bundling_image,
+                    image=lambda_.Runtime.PYTHON_3_11.bundling_image,
                     command=[
                         "bash", "-c",
                         "mkdir /asset-output/python && pip install -r requirements.txt -t /asset-output/python && cp -au . /asset-output"
                     ]
                 )
             ),
-            compatible_runtimes=[lambda_.Runtime.PYTHON_3_9],
+            compatible_runtimes=[lambda_.Runtime.PYTHON_3_11],
             compatible_architectures=[
                 lambda_.Architecture.ARM_64]
         )
@@ -77,14 +77,14 @@ class Aws4HomeStack(Stack):
             code=lambda_.Code.from_asset(
                 'layer/pytz',
                 bundling=BundlingOptions(
-                    image=lambda_.Runtime.PYTHON_3_9.bundling_image,
+                    image=lambda_.Runtime.PYTHON_3_11.bundling_image,
                     command=[
                         "bash", "-c",
                         "mkdir /asset-output/python && pip install -r requirements.txt -t /asset-output/python && cp -au . /asset-output"
                     ]
                 )
             ),
-            compatible_runtimes=[lambda_.Runtime.PYTHON_3_9],
+            compatible_runtimes=[lambda_.Runtime.PYTHON_3_11],
             compatible_architectures=[
                 lambda_.Architecture.ARM_64]
         )
@@ -94,14 +94,14 @@ class Aws4HomeStack(Stack):
             code=lambda_.Code.from_asset(
                 'layer/bs4',
                 bundling=BundlingOptions(
-                    image=lambda_.Runtime.PYTHON_3_9.bundling_image,
+                    image=lambda_.Runtime.PYTHON_3_11.bundling_image,
                     command=[
                         "bash", "-c",
                         "mkdir /asset-output/python && pip install -r requirements.txt -t /asset-output/python && cp -au . /asset-output"
                     ]
                 )
             ),
-            compatible_runtimes=[lambda_.Runtime.PYTHON_3_9],
+            compatible_runtimes=[lambda_.Runtime.PYTHON_3_11],
             compatible_architectures=[
                 lambda_.Architecture.ARM_64]
         )
@@ -119,18 +119,18 @@ class Aws4HomeStack(Stack):
                     ]
                 )
             ),
-            compatible_runtimes=[lambda_.Runtime.PYTHON_3_9],
+            compatible_runtimes=[lambda_.Runtime.PYTHON_3_11],
             compatible_architectures=[lambda_.Architecture.ARM_64]
         )
 
         iss = lambda_.Function(
             self, 'FnIss',
-            runtime=lambda_.Runtime.PYTHON_3_9,
+            runtime=lambda_.Runtime.PYTHON_3_11,
             architecture=lambda_.Architecture.ARM_64,
             code=lambda_.Code.from_asset(
                 'function/iss',
                 bundling=BundlingOptions(
-                    image=lambda_.Runtime.PYTHON_3_9.bundling_image,
+                    image=lambda_.Runtime.PYTHON_3_11.bundling_image,
                     command=[
                         "bash", "-c","cp -au . /asset-output"
                     ]
@@ -208,12 +208,12 @@ class Aws4HomeStack(Stack):
 
         bond = lambda_.Function(
             self, 'FnBond',
-            runtime=lambda_.Runtime.PYTHON_3_9,
+            runtime=lambda_.Runtime.PYTHON_3_11,
             architecture=lambda_.Architecture.ARM_64,
             code=lambda_.Code.from_asset(
                 'function/bond',
                 bundling=BundlingOptions(
-                    image=lambda_.Runtime.PYTHON_3_9.bundling_image,
+                    image=lambda_.Runtime.PYTHON_3_11.bundling_image,
                     command=[
                         "bash", "-c","cp -au . /asset-output"
                     ]
@@ -284,12 +284,12 @@ class Aws4HomeStack(Stack):
 
         lunar_lander = lambda_.Function(
             self, 'FnLunarLander',
-            runtime=lambda_.Runtime.PYTHON_3_9,
+            runtime=lambda_.Runtime.PYTHON_3_11,
             architecture=lambda_.Architecture.ARM_64,
             code=lambda_.Code.from_asset(
                 'function/lunar-lander',
                 bundling=BundlingOptions(
-                    image=lambda_.Runtime.PYTHON_3_9.bundling_image,
+                    image=lambda_.Runtime.PYTHON_3_11.bundling_image,
                     command=[
                         "bash", "-c","cp -au . /asset-output"
                     ]

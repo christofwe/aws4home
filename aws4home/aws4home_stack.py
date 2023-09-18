@@ -31,6 +31,8 @@ class Aws4HomeStack(Stack):
         domain_name = params['DomainName']
         mqtt_topic = params['MqttTopic']
         tz = params['TimeZone']
+        powertools_layer_arn = params['Layers']['Powertools']
+        garagedoor_shadow_prefix = params['GaragedoorShadowPrefix']
 
         hosted_zone = route53.HostedZone.from_lookup(
             self, 'HostedZone',
@@ -38,21 +40,10 @@ class Aws4HomeStack(Stack):
             private_zone=False
         )
 
-        powertools = lambda_.LayerVersion(
-            self, 'LayerPowertools',
-            code=lambda_.Code.from_asset(
-                'layer/powertools',
-                bundling=BundlingOptions(
-                    image=lambda_.Runtime.PYTHON_3_11.bundling_image,
-                    command=[
-                        "bash", "-c",
-                        "mkdir /asset-output/python && pip install -r requirements.txt -t /asset-output/python && cp -au . /asset-output"
-                    ]
-                )
-            ),
-            compatible_runtimes=[lambda_.Runtime.PYTHON_3_11],
-            compatible_architectures=[
-                lambda_.Architecture.ARM_64]
+        powertools = lambda_.LayerVersion.from_layer_version_arn(
+            self,
+            id="LayerPowertools",
+            layer_version_arn=powertools_layer_arn
         )
 
         requests = lambda_.LayerVersion(
@@ -104,23 +95,6 @@ class Aws4HomeStack(Stack):
             compatible_runtimes=[lambda_.Runtime.PYTHON_3_11],
             compatible_architectures=[
                 lambda_.Architecture.ARM_64]
-        )
-
-        tailscale = lambda_.LayerVersion(
-            self, 'LayerTailscale',
-            code=lambda_.Code.from_asset(
-                'layer/tailscale',
-                bundling=BundlingOptions(
-                    image=DockerImage.from_registry(image='public.ecr.aws/sam/build-provided.al2:latest'),
-                    user="root",
-                    command=[
-                        "bash", "-c",
-                        "bash ./setup.sh && cp -au /tmp/bin /asset-output && cp -au /tmp/extensions /asset-output"
-                    ]
-                )
-            ),
-            compatible_runtimes=[lambda_.Runtime.PYTHON_3_11],
-            compatible_architectures=[lambda_.Architecture.ARM_64]
         )
 
         iss = lambda_.Function(
@@ -195,7 +169,6 @@ class Aws4HomeStack(Stack):
             ],
             log_retention=logs.RetentionDays.ONE_MONTH
         )
-
         rule_iss = events.Rule(
             self, 'RuleIss',
             description=f"Scheduled trigger for {iss.function_name}",
@@ -204,6 +177,13 @@ class Aws4HomeStack(Stack):
             rule_name=iss_prefix
         )
         rule_iss.add_target(targets.LambdaFunction(iss))
+        route53.RecordSet(
+            self, 'RecordIssDuration',
+            record_type=route53.RecordType.TXT,
+            record_name=f"duration.{iss_prefix}.{domain_name}",
+            target=route53.RecordTarget.from_values("\"0\""),
+            zone=hosted_zone
+        )
 
 
         bond = lambda_.Function(
@@ -264,7 +244,6 @@ class Aws4HomeStack(Stack):
             ],
             log_retention=logs.RetentionDays.ONE_MONTH
         )
-
         rule_bond = events.Rule(
             self, 'RuleBond',
             description=f"Scheduled trigger for {bond.function_name}",
@@ -273,14 +252,6 @@ class Aws4HomeStack(Stack):
             rule_name=bond_prefix
         )
         rule_bond.add_target(targets.LambdaFunction(bond))
-
-        route53.RecordSet(
-            self, 'RecordIssDuration',
-            record_type=route53.RecordType.TXT,
-            record_name=f"duration.{iss_prefix}.{domain_name}",
-            target=route53.RecordTarget.from_values("\"0\""),
-            zone=hosted_zone
-        )
 
         lunar_lander = lambda_.Function(
             self, 'FnLunarLander',
@@ -327,7 +298,6 @@ class Aws4HomeStack(Stack):
             ],
             log_retention=logs.RetentionDays.ONE_MONTH
         )
-
         # rule_lunar_lander = events.Rule(
         #     self, 'RuleLunarLander',
         #     description=f"Scheduled trigger for {lunar_lander.function_name}",
@@ -336,3 +306,47 @@ class Aws4HomeStack(Stack):
         #     rule_name=lunar_prefix
         # )
         # rule_lunar_lander.add_target(targets.LambdaFunction(lunar_lander))
+
+        garagedoor_shadow = lambda_.Function(
+            self, 'FnGaragedoorShadow',
+            runtime=lambda_.Runtime.PYTHON_3_11,
+            architecture=lambda_.Architecture.ARM_64,
+            code=lambda_.Code.from_asset(
+                'function/garagedoor-shadow',
+                bundling=BundlingOptions(
+                    image=lambda_.Runtime.PYTHON_3_11.bundling_image,
+                    command=[
+                        "bash", "-c","cp -au . /asset-output"
+                    ]
+                )
+            ),
+            handler="index.handler",
+            layers=[powertools],
+            tracing=lambda_.Tracing.ACTIVE,
+            timeout=Duration.seconds(60),
+            memory_size=128,
+            environment={
+                "LOG_LEVEL": "DEBUG",
+                "POWERTOOLS_SERVICE_NAME": garagedoor_shadow_prefix,
+            },
+            initial_policy=[
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    actions=[
+                        "iot:UpdateThingShadow"
+                    ],
+                    resources=[
+                        f"arn:aws:iot:{deploy_region}:{deploy_account_id}:thing/*"
+                    ]
+                )
+            ],
+            log_retention=logs.RetentionDays.ONE_MONTH
+        )
+        # rule_garagedoor_shadow = events.Rule(
+        #     self, 'RuleGaragedoorShadow',
+        #     description=f"Scheduled trigger for {garagedoor_shadow.function_name}",
+        #     schedule=events.Schedule.cron(minute="17", hour="20"),
+        #     enabled=True,
+        #     rule_name=garagedoor_shadow_prefix
+        # )
+        # rule_garagedoor_shadow.add_target(targets.LambdaFunction(garagedoor_shadow))
